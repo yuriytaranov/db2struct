@@ -296,31 +296,30 @@ type testStruct struct {
 
 func TestMysqlDBTagGenerate(t *testing.T) {
 	columnMap := map[string]map[string]string{
-		"STRING_COLUMN":      {"nullable": "NO", "value": "varchar"},
-		"NULL_STRING_COLUMN": {"nullable": "YES", "value": "varchar"},
+		"STRING_COLUMN":      {"nullable": "NO", "value": "varchar", "comment": ""},
+		"NULL_STRING_COLUMN": {"nullable": "YES", "value": "varchar", "comment": "Null String"},
 	}
 	columnsSorted := []string{
 		"STRING_COLUMN",
 		"NULL_STRING_COLUMN",
 	}
 
-	expectedStructB, err := format.Source([]byte(
-		`package test
+	expectedStructB, sourceerr := format.Source([]byte(`package test
   
   const (
   	TestStructTable      = "test_table"
-  	TestStructTableAlias = "testStruct"
+  	TestStructTableAlias = "TestStruct"
   )
   
   type TestStruct struct {
-  	StringColumn     string
-  	NullStringColumn sql.NullString
-  }
-  `))
+  	StringColumn     string         ` + "`db:\"TestStructStringColumn\"`\n" +
+		"NullStringColumn sql.NullString  `db:\"TestStructNullStringColumn\"` // Null String\n" +
+		"}"))
 	expectedStruct := string(expectedStructB)
-	bytes, err := Generate(columnMap, columnsSorted, "test_table", "testStruct", "test", false, false, false, true)
+	bytes, err := Generate(columnMap, columnsSorted, "test_table", "TestStruct", "test", false, false, false, true)
 
 	Convey("Should be able to generate map from string column", t, func() {
+		So(sourceerr, ShouldBeNil)
 		So(err, ShouldBeNil)
 		So(string(bytes), ShouldEqual, expectedStruct)
 	})

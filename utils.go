@@ -90,7 +90,7 @@ func Generate(columnTypes map[string]map[string]string, columnsSorted []string, 
 		tableName,
 		tableConstName,
 		structName,
-		tableConstName,
+		structName,
 		dbTypes)
 	if gormAnnotation {
 		tableNameFunc := "// TableName sets the insert table name for this struct type\n" +

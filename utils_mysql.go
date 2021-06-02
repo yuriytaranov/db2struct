@@ -108,7 +108,7 @@ func generateMysqlTypes(
 			annotations = append(annotations, fmt.Sprintf("gorm:\"column:%s%s\"", key, primary))
 		}
 		if dbAnnotations {
-			annotations = append(annotations, fmt.Sprintf("db:\"%s%s\"", strings.Title(structName), strings.Title(key)))
+			annotations = append(annotations, fmt.Sprintf("db:\"%s%s\"", structName, fieldName))
 		}
 		if jsonAnnotation {
 			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", key))
@@ -116,9 +116,12 @@ func generateMysqlTypes(
 
 		// add column comment
 		comment := mysqlType["comment"]
-		if len(annotations) > 0 && len(comment) > 0 {
-			structure += fmt.Sprintf("\n%s %s `%s`  //%s", fieldName, valueType, strings.Join(annotations, " "), comment)
-			//structure += fmt.Sprintf("\n%s %s `%s`", fieldName, valueType, strings.Join(annotations, " "))
+		if len(annotations) > 0 {
+			annotate := fmt.Sprintf("\n%s %s `%s`", fieldName, valueType, strings.Join(annotations, " "))
+			if len(comment) > 0 {
+				annotate = fmt.Sprintf("%s // %s", annotate, comment)
+			}
+			structure += annotate
 		} else {
 			structure += fmt.Sprintf("\n%s %s", fieldName, valueType)
 		}
