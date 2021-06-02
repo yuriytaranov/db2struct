@@ -108,6 +108,7 @@ func Generate(columnTypes map[string]map[string]string, columnsSorted []string, 
 // 	fmtFieldName("foo_id")
 // Output: FooID
 func fmtFieldName(s string) string {
+	s = strings.ToLower(s)
 	name := lintFieldName(s)
 	runes := []rune(name)
 	for i, c := range runes {
