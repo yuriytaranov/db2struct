@@ -435,4 +435,10 @@ func TestFmtFieldName(t *testing.T) {
 		t.Logf("Expected %s, Got %s\n", expectedID, id)
 		t.Fail()
 	}
+	itemIDLowerCase := fmtFieldName("item_id")
+	expectedItemIDLowerCase := "ItemID"
+	if itemIDLowerCase != expectedItemIDLowerCase {
+		t.Logf("Expected %s, Got %s", expectedItemIDLowerCase, itemIDLowerCase)
+		t.Fail()
+	}
 }
