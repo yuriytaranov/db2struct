@@ -28,7 +28,9 @@ func GetColumnsFromMysqlTable(mariadbUser string, mariadbPassword string, mariad
 	}
 	defer func() {
 		err := db.Close()
-		log.Fatalln(err)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}()
 	columnNamesSorted := []string{}
 
