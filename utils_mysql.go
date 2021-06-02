@@ -4,28 +4,32 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
+	"log"
 	"strings"
 )
 
 // GetColumnsFromMysqlTable Select column details from information schema and return map of map
 func GetColumnsFromMysqlTable(mariadbUser string, mariadbPassword string, mariadbHost string, mariadbPort int, mariadbDatabase string, mariadbTable string) (*map[string]map[string]string, []string, error) {
-
-	var err error
-	var db *sql.DB
+	dsn := fmt.Sprintf("@tcp(%s:%d)/%s?&parseTime=True",
+		mariadbHost,
+		mariadbPort,
+		mariadbDatabase)
 	if mariadbPassword != "" {
-		db, err = sql.Open("mysql", mariadbUser+":"+mariadbPassword+"@tcp("+mariadbHost+":"+strconv.Itoa(mariadbPort)+")/"+mariadbDatabase+"?&parseTime=True")
+		dsn = fmt.Sprintf("%s:%s%s", mariadbUser, mariadbPassword, dsn)
 	} else {
-		db, err = sql.Open("mysql", mariadbUser+"@tcp("+mariadbHost+":"+strconv.Itoa(mariadbPort)+")/"+mariadbDatabase+"?&parseTime=True")
+		dsn = fmt.Sprintf("%s%s", mariadbUser, dsn)
 	}
-	defer db.Close()
+	db, err := sql.Open("mysql", dsn)
 
 	// Check for error in db, note this does not check connectivity but does check uri
 	if err != nil {
 		fmt.Println("Error opening mysql db: " + err.Error())
 		return nil, nil, err
 	}
-
+	defer func() {
+		err := db.Close()
+		log.Fatalln(err)
+	}()
 	columnNamesSorted := []string{}
 
 	// Store colum as map of maps
@@ -44,9 +48,14 @@ func GetColumnsFromMysqlTable(mariadbUser string, mariadbPassword string, mariad
 		return nil, nil, err
 	}
 	if rows != nil {
-		defer rows.Close()
+		defer func() {
+			err := rows.Close()
+			if err != nil {
+				log.Println(err)
+			}
+		}()
 	} else {
-		return nil, nil, errors.New("No results returned for table")
+		return nil, nil, errors.New("no results returned for table")
 	}
 
 	for rows.Next() {
@@ -65,7 +74,15 @@ func GetColumnsFromMysqlTable(mariadbUser string, mariadbPassword string, mariad
 }
 
 // Generate go struct entries for a map[string]interface{} structure
-func generateMysqlTypes(obj map[string]map[string]string, columnsSorted []string, depth int, jsonAnnotation bool, gormAnnotation bool, gureguTypes bool) string {
+func generateMysqlTypes(
+	obj map[string]map[string]string,
+	columnsSorted []string,
+	depth int,
+	jsonAnnotation bool,
+	gormAnnotation bool,
+	gureguTypes bool,
+	dbAnnotations bool,
+	structName string) string {
 	structure := "struct {"
 
 	for _, key := range columnsSorted {
@@ -81,23 +98,25 @@ func generateMysqlTypes(obj map[string]map[string]string, columnsSorted []string
 		}
 
 		// Get the corresponding go value type for this mysql type
-		var valueType string
 		// If the guregu (https://github.com/guregu/null) CLI option is passed use its types, otherwise use go's sql.NullX
 
-		valueType = mysqlTypeToGoType(mysqlType["value"], nullable, gureguTypes)
+		valueType := mysqlTypeToGoType(mysqlType["value"], nullable, gureguTypes)
 
 		fieldName := fmtFieldName(strings.ToLower(stringifyFirstChar(key)))
 		var annotations []string
-		if gormAnnotation == true {
+		if gormAnnotation {
 			annotations = append(annotations, fmt.Sprintf("gorm:\"column:%s%s\"", key, primary))
 		}
-		if jsonAnnotation == true {
+		if dbAnnotations {
+			annotations = append(annotations, fmt.Sprintf("db:\"%s%s\"", strings.Title(structName), strings.Title(key)))
+		}
+		if jsonAnnotation {
 			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", key))
 		}
 
-		if len(annotations) > 0 {
-			// add colulmn comment
-			comment := mysqlType["comment"]
+		// add column comment
+		comment := mysqlType["comment"]
+		if len(annotations) > 0 && len(comment) > 0 {
 			structure += fmt.Sprintf("\n%s %s `%s`  //%s", fieldName, valueType, strings.Join(annotations, " "), comment)
 			//structure += fmt.Sprintf("\n%s %s `%s`", fieldName, valueType, strings.Join(annotations, " "))
 		} else {
